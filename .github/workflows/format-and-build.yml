@@ -1,0 +1,26 @@
+on: [push]
+
+name: Format and build
+
+jobs:
+  check:
+    name: Rust project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            override: true
+            target: thumbv7em-none-eabihf
+            components: rustfmt, clippy
+
+      - name: Run cargo fmt
+        run: cargo fmt --all -- --check
+
+      - name: Run cargo clippy
+        run: cargo clippy --all -- -D warnings
+
+      - name: Run cargo build
+        run: cargo build --all --release --target thumbv7em-none-eabihf
