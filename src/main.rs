@@ -1,14 +1,13 @@
-#![no_std]
-#![no_main]
+use std::{env, fs};
 
-use core::panic::PanicInfo;
+fn main() {
+    let current_exe = env::current_exe().unwrap();
+    let uefi_target = current_exe.with_file_name("uefi.img");
+    let bios_target = current_exe.with_file_name("bios.img");
 
-#[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    loop {}
-}
+    fs::copy(env!("UEFI_IMAGE"), &uefi_target).unwrap();
+    fs::copy(env!("BIOS_IMAGE"), &bios_target).unwrap();
 
-#[no_mangle]
-pub extern "C" fn _start() -> ! {
-    panic!("Hello World!");
+    println!("UEFI disk image at {}", uefi_target.display());
+    println!("BIOS disk image at {}", bios_target.display());
 }

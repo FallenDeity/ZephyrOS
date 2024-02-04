@@ -19,25 +19,22 @@ repos:
             name: rustfmt
             entry: cargo
             args: [fmt, --all, --, --check]
-            language: system
-            types: [file]
-            files: \.(rs)$
-            exclude: '^(\.cargo|target)/'
+            pass_filenames: true
+            types: [file, rust]
+            language: rust
 
-          - id: cargo-clippy
-            name: cargo clippy
+          - id: clippy
+            name: clippy
             entry: cargo
             args: [clippy, --all, --, -D, warnings]
-            language: system
-            types: [file]
-            files: \.(rs)$
-            exclude: '^(\.cargo|target)/'
+            pass_filenames: false
+            types: [file, rust]
+            language: rust
 
-          - id: cargo-build
-            name: cargo build
+          - id: build
+            name: build
             entry: cargo
-            args: [build, --all, --release, --target, thumbv7em-none-eabihf]
-            language: system
-            types: [file]
-            files: \.(rs)$
-            exclude: '^(\.cargo|target)/'
+            args: [build, --release]
+            pass_filenames: false
+            types: [file, rust]
+            language: rust
