@@ -35,6 +35,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         println!("Hello, Kernel Mode!");
         println!("Frame buffer initialized with {:?}", frame_buffer_info);
     }
+
     let mut x = 0;
     loop {
         println!("Hello, Kernel Mode! {}", x);
@@ -44,6 +45,6 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
-    log::error!("Kernel panic: {:?}", _info);
+    println!("Kernel panic: {:?}", _info);
     loop {}
 }

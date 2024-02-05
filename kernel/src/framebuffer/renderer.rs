@@ -133,7 +133,6 @@ impl<'f> TextRenderer<'f> {
     }
 }
 
-#[allow(dead_code)]
 fn infallible<T>(v: Infallible) -> T {
     match v {}
 }
