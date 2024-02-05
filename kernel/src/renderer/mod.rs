@@ -1,10 +1,10 @@
+pub mod text_renderer;
+
 use bootloader_api::info::{FrameBuffer, PixelFormat};
 use embedded_graphics::draw_target::DrawTarget;
 use embedded_graphics::geometry::{OriginDimensions, Size};
 use embedded_graphics::pixelcolor::{Rgb888, RgbColor};
 use embedded_graphics::Pixel;
-
-pub mod renderer;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position {

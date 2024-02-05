@@ -1,50 +1,37 @@
 #![no_std]
 #![no_main]
+#![feature(abi_x86_interrupt)]
 
 use core::panic::PanicInfo;
 
-use bootloader_api::info::{BootInfo, FrameBufferInfo};
-use bootloader_x86_64_common::logger::LockedLogger;
-use conquer_once::spin::OnceCell;
-
-use crate::framebuffer::renderer::{init_text_renderer, TEXT_RENDERER};
-
-mod framebuffer;
+use bootloader_api::info::BootInfo;
+use embedded_graphics::pixelcolor::{Rgb888, RgbColor};
+#[allow(unused_imports)]
+use kernel::{print, println, renderer::text_renderer};
 
 bootloader_api::entry_point!(kernel_main);
 
-#[allow(dead_code)]
-pub(crate) static LOGGER: OnceCell<LockedLogger> = OnceCell::uninit();
-
-#[allow(dead_code)]
-pub(crate) fn init_logger(buffer: &'static mut [u8], info: FrameBufferInfo) {
-    let logger = LOGGER.get_or_init(move || LockedLogger::new(buffer, info, true, false));
-    log::set_logger(logger).expect("Logger already set");
-    log::set_max_level(log::LevelFilter::Trace);
-    log::info!("Hello, Kernel Mode!");
-}
-
 #[allow(clippy::empty_loop)]
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
-    if let Some(frame_buffer) = boot_info.framebuffer.as_mut() {
-        let frame_buffer_info = frame_buffer.info();
-        // init_logger(frame_buffer.buffer_mut(), frame_buffer_info);
-        // log::debug!("Frame buffer initialized with {:?}", frame_buffer_info);
-        init_text_renderer(frame_buffer);
-        TEXT_RENDERER.get().unwrap().lock().clear();
-        println!("Hello, Kernel Mode!");
-        println!("Frame buffer initialized with {:?}", frame_buffer_info);
-    }
-
-    let mut x = 0;
-    loop {
-        println!("Hello, Kernel Mode! {}", x);
-        x += 1;
-    }
+    kernel::init(boot_info);
+    println!("Kernel Initialized...");
+    x86_64::instructions::interrupts::int3();
+    println!("It did not crash!");
+    loop {}
 }
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
+    text_renderer::TEXT_RENDERER
+        .get()
+        .unwrap()
+        .lock()
+        .set_color(Rgb888::RED);
     println!("Kernel panic: {:?}", _info);
+    text_renderer::TEXT_RENDERER
+        .get()
+        .unwrap()
+        .lock()
+        .set_color(Rgb888::WHITE);
     loop {}
 }

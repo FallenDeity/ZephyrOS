@@ -12,15 +12,15 @@ use embedded_graphics::text::Text;
 use embedded_graphics::Drawable;
 use spin::Mutex;
 
-use crate::framebuffer::Display;
+use crate::renderer::Display;
 
 const CURSOR_HEIGHT: i32 = FONT_7X14.character_size.height as i32;
 const LETTER_WIDTH: i32 = FONT_7X14.character_size.width as i32;
 const LINE_SPACING: i32 = 4;
 
-pub(crate) static TEXT_RENDERER: OnceCell<Mutex<TextRenderer<'static>>> = OnceCell::uninit();
+pub static TEXT_RENDERER: OnceCell<Mutex<TextRenderer<'static>>> = OnceCell::uninit();
 
-pub(crate) fn init_text_renderer(framebuffer: &'static mut FrameBuffer) {
+pub fn init_text_renderer(framebuffer: &'static mut FrameBuffer) {
     let display = Display::new(framebuffer);
     let renderer = TextRenderer::new(display);
     TEXT_RENDERER.get_or_init(move || Mutex::new(renderer));
@@ -58,7 +58,7 @@ impl<'f> TextRenderer<'f> {
         info.stride * info.bytes_per_pixel * CURSOR_HEIGHT as usize
     }
 
-    pub fn shift_framebuffer(&mut self) {
+    fn shift_framebuffer(&mut self) {
         let info = self.display.framebuffer.info();
         let bytes_per_text_line = self.bytes_per_text_line();
         let framebuffer_size = info.stride * info.height * info.bytes_per_pixel;
@@ -78,14 +78,14 @@ impl<'f> TextRenderer<'f> {
         self.position.y -= 2 * CURSOR_HEIGHT + LINE_SPACING;
     }
 
-    pub fn render_cursor(&mut self) {
+    fn render_cursor(&mut self) {
         let style = PrimitiveStyle::with_fill(Rgb888::WHITE);
         Rectangle::new(self.position, Size::new(10, 20))
             .draw_styled(&style, &mut self.display)
             .unwrap_or_else(infallible);
     }
 
-    pub fn clear_cursor(&mut self) {
+    fn clear_cursor(&mut self) {
         let style = PrimitiveStyle::with_fill(self.background_color);
         Rectangle::new(self.position, Size::new(10, 20))
             .draw_styled(&style, &mut self.display)
@@ -131,6 +131,10 @@ impl<'f> TextRenderer<'f> {
 
         self.render_cursor();
     }
+
+    pub fn set_color(&mut self, color: Rgb888) {
+        self.style = MonoTextStyle::new(&FONT_7X14, color);
+    }
 }
 
 fn infallible<T>(v: Infallible) -> T {
@@ -159,7 +163,7 @@ pub fn _print(args: core::fmt::Arguments) {
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::framebuffer::renderer::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::renderer::text_renderer::_print(format_args!($($arg)*)));
 }
 
 #[macro_export]
