@@ -4,6 +4,8 @@ use embedded_graphics::geometry::{OriginDimensions, Size};
 use embedded_graphics::pixelcolor::{Rgb888, RgbColor};
 use embedded_graphics::Pixel;
 
+pub mod renderer;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position {
     pub x: usize,
