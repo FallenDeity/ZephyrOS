@@ -4,52 +4,20 @@ use x86_64::structures::idt::{InterruptStackFrame, PageFaultErrorCode};
 use crate::println;
 use crate::renderer::text_renderer;
 
+fn _set_color(color: Rgb888) {
+    text_renderer::TEXT_RENDERER.get().unwrap().lock().set_color(color);
+}
+
 macro_rules! interrupt_handler {
     ($name:tt, $info:expr) => {
         pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame) {
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::RED);
-            println!("EXCEPTION: {}\n{:#?}", $info, stack_frame);
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::WHITE);
+            panic!("EXCEPTION: {}\n{:#?}", $info, stack_frame);
         }
     };
-    ($name:tt, $info:expr,true) => {
-        pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame) {
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::RED);
-            println!("EXCEPTION: {}\n{:#?}", $info, stack_frame);
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::WHITE);
-        }
-    };
-    ($name:tt, $info:expr,false) => {
-        pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame) {
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::RED);
-            println!("EXCEPTION: {}\n{:#?}", $info, stack_frame);
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::WHITE);
-        }
-    };
+}
+
+pub extern "x86-interrupt" fn machine_check_handler(stack_frame: InterruptStackFrame) -> ! {
+    panic!("EXCEPTION: MACHINE CHECK\n{:#?}", stack_frame);
 }
 
 interrupt_handler!(divide_by_zero_handler, "DIVIDE BY ZERO");
@@ -60,68 +28,27 @@ interrupt_handler!(bound_range_exceeded_handler, "BOUND RANGE EXCEEDED");
 interrupt_handler!(invalid_opcode_handler, "INVALID OPCODE");
 interrupt_handler!(device_not_available_handler, "DEVICE NOT AVAILABLE");
 interrupt_handler!(x87_floating_point_handler, "X87 FLOATING POINT");
-// interrupt_handler!(machine_check_handler, "MACHINE CHECK", true);
 interrupt_handler!(simd_floating_point_handler, "SIMD FLOATING POINT");
 interrupt_handler!(virtualization_handler, "VIRTUALIZATION");
 
 macro_rules! error_code_interrupt_handler {
     ($name:tt, $info:expr) => {
         pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame, error_code: u64) {
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::RED);
-            println!(
+            panic!(
                 "EXCEPTION: {} - ERROR CODE: {}\n{:#?}",
                 $info, error_code, stack_frame
             );
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::WHITE);
-        }
-    };
-    ($name:tt, $info:expr,true) => {
-        pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame, error_code: u64) {
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::RED);
-            println!(
-                "EXCEPTION: {} - ERROR CODE: {}\n{:#?}",
-                $info, error_code, stack_frame
-            );
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::WHITE);
-        }
-    };
-    ($name:tt, $info:expr,false) => {
-        pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame, error_code: u64) {
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::RED);
-            println!(
-                "EXCEPTION: {} - ERROR CODE: {}\n{:#?}",
-                $info, error_code, stack_frame
-            );
-            text_renderer::TEXT_RENDERER
-                .get()
-                .unwrap()
-                .lock()
-                .set_color(Rgb888::WHITE);
         }
     };
 }
 
-// error_code_interrupt_handler!(double_fault_handler, "DOUBLE FAULT", true);
+pub extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame, error_code: u64) -> ! {
+    panic!(
+        "EXCEPTION: DOUBLE FAULT - ERROR CODE: {}\n{:#?}",
+        error_code, stack_frame
+    );
+}
+
 error_code_interrupt_handler!(invalid_tss_handler, "INVALID TSS");
 error_code_interrupt_handler!(segment_not_present_handler, "SEGMENT NOT PRESENT");
 error_code_interrupt_handler!(stack_segment_fault_handler, "STACK SEGMENT FAULT");
@@ -130,32 +57,14 @@ error_code_interrupt_handler!(alignment_check_handler, "ALIGNMENT CHECK");
 error_code_interrupt_handler!(security_exception_handler, "SECURITY EXCEPTION");
 
 pub extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, error_code: PageFaultErrorCode) {
-    text_renderer::TEXT_RENDERER
-        .get()
-        .unwrap()
-        .lock()
-        .set_color(Rgb888::RED);
-    println!(
+    panic!(
         "EXCEPTION: PAGE FAULT - ERROR CODE: {:?}\n{:#?}",
         error_code, stack_frame
     );
-    text_renderer::TEXT_RENDERER
-        .get()
-        .unwrap()
-        .lock()
-        .set_color(Rgb888::WHITE);
 }
 
 pub extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
-    text_renderer::TEXT_RENDERER
-        .get()
-        .unwrap()
-        .lock()
-        .set_color(Rgb888::RED);
+    _set_color(Rgb888::RED);
     println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
-    text_renderer::TEXT_RENDERER
-        .get()
-        .unwrap()
-        .lock()
-        .set_color(Rgb888::WHITE);
+    _set_color(Rgb888::WHITE);
 }

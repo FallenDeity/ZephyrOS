@@ -15,8 +15,6 @@ bootloader_api::entry_point!(kernel_main);
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     kernel::init(boot_info);
     println!("Kernel Initialized...");
-    x86_64::instructions::interrupts::int3();
-    println!("It did not crash!");
     loop {}
 }
 

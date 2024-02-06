@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
+pub mod gdt;
 pub mod interrupt;
 pub mod renderer;
 
@@ -13,6 +14,8 @@ pub fn init(boot_info: &'static mut BootInfo) {
     renderer::text_renderer::init_text_renderer(frame_buffer);
     renderer::text_renderer::TEXT_RENDERER.get().unwrap().lock().clear();
     println!("Frame buffer initialized with {:?}", frame_buffer_info);
+    gdt::init_gdt();
+    println!("GDT Initialized");
     interrupt::init_idt();
     println!("Hardware Interrupts Initialized");
 }

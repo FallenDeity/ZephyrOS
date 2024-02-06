@@ -3,8 +3,10 @@ mod interrupt_handler;
 use spin::Lazy;
 use x86_64::structures::idt::InterruptDescriptorTable;
 
+use super::gdt;
+
 static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
-    // TODO: Add double fault, machine check, timer and keyboard interrupts
+    // TODO: Add timer and keyboard interrupts
     let mut idt = InterruptDescriptorTable::new();
     idt.divide_error
         .set_handler_fn(interrupt_handler::divide_by_zero_handler);
@@ -37,6 +39,13 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     idt.security_exception
         .set_handler_fn(interrupt_handler::security_exception_handler);
     idt.breakpoint.set_handler_fn(interrupt_handler::breakpoint_handler);
+    unsafe {
+        idt.double_fault
+            .set_handler_fn(interrupt_handler::double_fault_handler)
+            .set_stack_index(gdt::tss::DOUBLE_FAULT_IST_INDEX);
+    }
+    idt.machine_check
+        .set_handler_fn(interrupt_handler::machine_check_handler);
     idt
 });
 
