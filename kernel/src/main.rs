@@ -4,12 +4,19 @@
 
 use core::panic::PanicInfo;
 
+use bootloader_api::config::{BootloaderConfig, Mapping};
 use bootloader_api::info::BootInfo;
 use embedded_graphics::pixelcolor::{Rgb888, RgbColor};
 use kernel::renderer::text_renderer;
 use kernel::{println, serial_println};
 
-bootloader_api::entry_point!(kernel_main);
+pub static BOOTLOADER_CONFIG: BootloaderConfig = {
+    let mut config = BootloaderConfig::new_default();
+    config.mappings.physical_memory = Some(Mapping::Dynamic);
+    config
+};
+
+bootloader_api::entry_point!(kernel_main, config = &BOOTLOADER_CONFIG);
 
 #[allow(clippy::empty_loop)]
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
