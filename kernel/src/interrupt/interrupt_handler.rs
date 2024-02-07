@@ -1,8 +1,8 @@
 use embedded_graphics::pixelcolor::{Rgb888, RgbColor};
 use x86_64::structures::idt::{InterruptStackFrame, PageFaultErrorCode};
 
-use crate::println;
 use crate::renderer::text_renderer;
+use crate::{println, serial_println};
 
 fn _set_color(color: Rgb888) {
     text_renderer::TEXT_RENDERER.get().unwrap().lock().set_color(color);
@@ -57,9 +57,13 @@ error_code_interrupt_handler!(alignment_check_handler, "ALIGNMENT CHECK");
 error_code_interrupt_handler!(security_exception_handler, "SECURITY EXCEPTION");
 
 pub extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, error_code: PageFaultErrorCode) {
+    use x86_64::registers::control::Cr2;
+
     panic!(
-        "EXCEPTION: PAGE FAULT - ERROR CODE: {:?}\n{:#?}",
-        error_code, stack_frame
+        "EXCEPTION: PAGE FAULT - ERROR CODE: {:?}\nAccessed Address: {:?}\n{:#?}",
+        error_code,
+        Cr2::read(),
+        stack_frame
     );
 }
 
@@ -67,4 +71,6 @@ pub extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFram
     _set_color(Rgb888::RED);
     println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
     _set_color(Rgb888::WHITE);
+
+    serial_println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
 }

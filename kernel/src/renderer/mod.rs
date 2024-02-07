@@ -1,3 +1,4 @@
+pub mod serial;
 pub mod text_renderer;
 
 use bootloader_api::info::{FrameBuffer, PixelFormat};

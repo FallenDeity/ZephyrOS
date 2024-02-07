@@ -156,8 +156,12 @@ impl Write for TextRenderer<'_> {
 
 #[doc(hidden)]
 pub fn _print(args: core::fmt::Arguments) {
+    use x86_64::instructions::interrupts::without_interrupts;
+
     if let Some(renderer) = TEXT_RENDERER.get() {
-        renderer.lock().write_fmt(args).expect("Error writing to renderer");
+        without_interrupts(|| {
+            renderer.lock().write_fmt(args).expect("Error writing to renderer");
+        });
     }
 }
 

@@ -14,8 +14,17 @@ pub fn init(boot_info: &'static mut BootInfo) {
     renderer::text_renderer::init_text_renderer(frame_buffer);
     renderer::text_renderer::TEXT_RENDERER.get().unwrap().lock().clear();
     println!("Frame buffer initialized with {:?}", frame_buffer_info);
+    serial_println!("Frame buffer initialized with {:?}", frame_buffer_info);
     gdt::init_gdt();
     println!("GDT Initialized");
+    serial_println!("GDT Initialized");
     interrupt::init_idt();
     println!("Hardware Interrupts Initialized");
+    serial_println!("Hardware Interrupts Initialized");
+}
+
+pub fn hlt_loop() -> ! {
+    loop {
+        x86_64::instructions::hlt();
+    }
 }

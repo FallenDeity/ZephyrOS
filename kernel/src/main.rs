@@ -6,8 +6,8 @@ use core::panic::PanicInfo;
 
 use bootloader_api::info::BootInfo;
 use embedded_graphics::pixelcolor::{Rgb888, RgbColor};
-#[allow(unused_imports)]
-use kernel::{print, println, renderer::text_renderer};
+use kernel::renderer::text_renderer;
+use kernel::{println, serial_println};
 
 bootloader_api::entry_point!(kernel_main);
 
@@ -15,7 +15,8 @@ bootloader_api::entry_point!(kernel_main);
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     kernel::init(boot_info);
     println!("Kernel Initialized...");
-    loop {}
+    serial_println!("Kernel Initialized...");
+    kernel::hlt_loop();
 }
 
 #[panic_handler]
@@ -31,5 +32,7 @@ fn panic(_info: &PanicInfo) -> ! {
         .unwrap()
         .lock()
         .set_color(Rgb888::WHITE);
-    loop {}
+
+    serial_println!("Kernel panic: {:?}", _info);
+    kernel::hlt_loop();
 }
