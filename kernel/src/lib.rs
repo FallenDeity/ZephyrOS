@@ -2,15 +2,28 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
+extern crate alloc;
+
 pub mod gdt;
 pub mod interrupt;
 pub mod memory;
 pub mod renderer;
 
 use bootloader_api::BootInfo;
-use x86_64::structures::paging::Translate;
+use conquer_once::spin::OnceCell;
+use x86_64::structures::paging::Page;
+use x86_64::VirtAddr;
+
+pub static PHYSICAL_MEMORY_OFFSET: OnceCell<VirtAddr> = OnceCell::uninit();
 
 pub fn init(boot_info: &'static mut BootInfo) {
+    serial_println!("Starting kernel initialization...");
+    let physical_memory_offset = boot_info.physical_memory_offset.into_option();
+    if let Some(offset) = physical_memory_offset {
+        PHYSICAL_MEMORY_OFFSET.init_once(|| VirtAddr::new(offset));
+    } else {
+        panic!("Physical memory offset not found");
+    }
     let frame_buffer = boot_info.framebuffer.as_mut().unwrap();
     let frame_buffer_info = frame_buffer.info();
     renderer::text_renderer::init_text_renderer(frame_buffer);
@@ -19,35 +32,24 @@ pub fn init(boot_info: &'static mut BootInfo) {
     serial_println!("Frame buffer initialized with {:?}", frame_buffer_info);
     println!("Physical memory offset: 0x{:?}", boot_info.physical_memory_offset);
     serial_println!("Physical memory offset: 0x{:?}", boot_info.physical_memory_offset);
-    let memory_offset: Option<u64> = boot_info.physical_memory_offset.into_option();
-    if let Some(offset) = memory_offset {
-        let virt = x86_64::VirtAddr::new(offset);
-        let mapper = unsafe { memory::page::init_page_table(virt) };
-        let addreses = [
-            0x10000000000,
-            0x10000000000 + 4096,
-            0x15000000000,
-            0x18000000000,
-            0x19000000000,
-            offset,
-        ];
-        for &addr in &addreses {
-            let v_addr = x86_64::VirtAddr::new(addr);
-            let p_addr = mapper.translate_addr(v_addr);
-            println!("{:?} -> {:?}", v_addr, p_addr);
-            serial_println!("{:?} -> {:?}", v_addr, p_addr);
-        }
-    } else {
-        println!("Physical memory offset not found");
-        serial_println!("Physical memory offset not found");
-        panic!("Physical memory offset not found");
-    }
     gdt::init_gdt();
     println!("GDT Initialized");
     serial_println!("GDT Initialized");
     interrupt::init_idt();
     println!("Hardware Interrupts Initialized");
     serial_println!("Hardware Interrupts Initialized");
+    unsafe {
+        memory::frame_alloc::init_memory_regions(&boot_info.memory_regions);
+    }
+    memory::alloc::init_heap().expect("Heap initialization failed");
+    println!("Heap initialized");
+    serial_println!("Heap initialized");
+    let page = Page::containing_address(VirtAddr::new(0));
+    let mut mapper = memory::PAGE_MAP.lock();
+    let mut frame_allocator = memory::frame_alloc::FRAME_ALLOCATOR.lock();
+    memory::page::_map_kernel_pages(page, &mut mapper, &mut frame_allocator);
+    println!("Kernel pages mapped");
+    serial_println!("Kernel pages mapped");
 }
 
 pub fn hlt_loop() -> ! {

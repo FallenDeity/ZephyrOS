@@ -1,6 +1,7 @@
-use x86_64::structures::paging::{OffsetPageTable, PageTable};
-use x86_64::VirtAddr;
+use x86_64::structures::paging::{Mapper, OffsetPageTable, Page, PageTable, PhysFrame};
+use x86_64::{PhysAddr, VirtAddr};
 
+use crate::memory::frame_alloc::bootinfo_allocator::BootInfoFrameAllocator;
 use crate::println;
 
 unsafe fn _get_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut PageTable {
@@ -29,31 +30,11 @@ pub fn display_page_table(page_table: &PageTable) {
     }
 }
 
-// pub unsafe fn translate_addr(addr: VirtAddr, physical_memory_offset: VirtAddr) -> Option<PhysAddr> {
-//     translate_addr_inner(addr, physical_memory_offset)
-// }
-//
-// fn translate_addr_inner(addr: VirtAddr, physical_memory_offset: VirtAddr) -> Option<PhysAddr> {
-//     use x86_64::registers::control::Cr3;
-//     use x86_64::structures::paging::page_table::FrameError;
-//
-//     let (level_4_table_frame, _) = Cr3::read();
-//     let t_idx = [addr.p4_index(), addr.p3_index(), addr.p2_index(), addr.p1_index()];
-//     let mut frame = level_4_table_frame;
-//
-//     for &index in &t_idx {
-//         // convert the frame into a page table reference
-//         let virt = physical_memory_offset + frame.start_address().as_u64();
-//         let table_ptr: *const PageTable = virt.as_ptr();
-//         let table = unsafe { &*table_ptr };
-//
-//         // read the page table entry and update `frame`
-//         let entry = &table[index];
-//         frame = match entry.frame() {
-//             Ok(frame) => frame,
-//             Err(FrameError::FrameNotPresent) => return None,
-//             Err(FrameError::HugeFrame) => panic!("Huge pages not supported"),
-//         };
-//     }
-//     Some(frame.start_address() + u64::from(addr.page_offset()))
-// }
+pub fn _map_kernel_pages(page: Page, mapper: &mut OffsetPageTable, frame_allocator: &mut BootInfoFrameAllocator) {
+    use x86_64::structures::paging::PageTableFlags as Flags;
+
+    let frame = PhysFrame::containing_address(PhysAddr::new(page.start_address().as_u64()));
+    let flags = Flags::PRESENT | Flags::WRITABLE;
+    let map_to_result = unsafe { mapper.map_to(page, frame, flags, frame_allocator) };
+    map_to_result.expect("Failed to map kernel pages").flush();
+}
