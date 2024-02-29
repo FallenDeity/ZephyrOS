@@ -2,7 +2,7 @@ use embedded_graphics::pixelcolor::{Rgb888, RgbColor};
 use x86_64::structures::idt::{InterruptStackFrame, PageFaultErrorCode};
 
 use crate::renderer::text_renderer;
-use crate::{println, serial_println};
+use crate::{print, println, serial_println};
 
 fn _set_color(color: Rgb888) {
     text_renderer::TEXT_RENDERER.get().unwrap().lock().set_color(color);
@@ -73,4 +73,14 @@ pub extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFram
     _set_color(Rgb888::WHITE);
 
     serial_println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
+}
+
+pub extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    use crate::interrupt::apic::lapic::LAPIC;
+
+    print!(".");
+
+    unsafe {
+        LAPIC.get().unwrap().lock().end_interrupts();
+    }
 }

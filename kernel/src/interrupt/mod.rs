@@ -1,12 +1,15 @@
+pub mod apic;
 mod interrupt_handler;
+mod interrupts;
 
 use spin::Lazy;
 use x86_64::structures::idt::InterruptDescriptorTable;
 
 use super::gdt;
+use crate::interrupt::interrupts::InterruptIndex;
 
 static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
-    // TODO: Add timer and keyboard interrupts
+    // TODO: Add keyboard interrupt
     let mut idt = InterruptDescriptorTable::new();
     idt.divide_error
         .set_handler_fn(interrupt_handler::divide_by_zero_handler);
@@ -46,6 +49,7 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     }
     idt.machine_check
         .set_handler_fn(interrupt_handler::machine_check_handler);
+    idt[InterruptIndex::Timer.as_usize()].set_handler_fn(interrupt_handler::timer_interrupt_handler);
     idt
 });
 
