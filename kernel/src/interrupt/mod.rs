@@ -49,7 +49,8 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     }
     idt.machine_check
         .set_handler_fn(interrupt_handler::machine_check_handler);
-    idt[InterruptIndex::Timer.as_usize()].set_handler_fn(interrupt_handler::timer_interrupt_handler);
+    idt[InterruptIndex::Timer.as_u8()].set_handler_fn(interrupt_handler::timer_interrupt_handler);
+    idt[InterruptIndex::Keyboard.as_u8()].set_handler_fn(interrupt_handler::keyboard_interrupt_handler);
     idt
 });
 

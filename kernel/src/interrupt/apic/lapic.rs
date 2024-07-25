@@ -1,69 +1,91 @@
-use core::ptr::{read_volatile, write_volatile};
-
 use conquer_once::spin::OnceCell;
 use spin::Mutex;
+use x2apic::lapic::{LocalApic, LocalApicBuilder};
+use x86_64::instructions::port::Port;
 use x86_64::PhysAddr;
 
-use super::reg::Register;
+pub static mut LAPIC: OnceCell<Mutex<LApic>> = OnceCell::uninit();
 
-pub static mut LAPIC: OnceCell<Mutex<LocalApic>> = OnceCell::uninit();
-
-pub struct LocalApic {
+pub struct LApic {
     addr: u64,
+    lapic: Option<LocalApic>,
 }
 
-impl LocalApic {
+impl LApic {
     pub fn new(addr: u64) -> Self {
         Self {
             addr: crate::memory::physical_to_virtual(PhysAddr::new(addr)).as_u64(),
+            lapic: None,
         }
-    }
-
-    unsafe fn read(&self, reg: Register) -> u32 {
-        read_volatile((self.addr + reg as u64) as *const u32)
-    }
-
-    unsafe fn write(&mut self, reg: Register, value: u32) {
-        write_volatile((self.addr + reg as u64) as *mut u32, value);
-        self.read(Register::Id); // wait for write to finish, by reading
     }
 
     pub fn init(&mut self) {
         unsafe {
-            self.write(Register::SpuriousInterruptVector, 0x100 | 39);
-            self.write(Register::TimerDivideConfiguration, 0xb);
-            self.write(Register::TimerLocalVectorTableEntry, 0x20000 | 32);
-            self.write(Register::TimerInitialCount, 10000000);
-            self.write(Register::LocalInterrupt0VectorTableEntry, 0x10000);
-            self.write(Register::LocalInterrupt1VectorTableEntry, 0x10000);
+            let mut cmd_8259a = Port::<u8>::new(0x20);
+            let mut data_8259a = Port::<u8>::new(0x21);
+            let mut cmd_8259b = Port::<u8>::new(0xa0);
+            let mut data_8259b = Port::<u8>::new(0xa1);
 
-            if (self.read(Register::Version) >> 16 & 0xFF) >= 4 {
-                self.write(Register::PerformanceCounterLocalVectorTableEntry, 0x10000);
-            }
+            let mut spin_port = Port::<u8>::new(0x80);
+            let mut spin = || spin_port.write(0);
 
-            self.write(Register::ErrorVectorTableEntry, 51);
-            self.write(Register::ErrorStatus, 0);
-            self.write(Register::ErrorStatus, 0);
+            cmd_8259a.write(0x11);
+            cmd_8259b.write(0x11);
+            spin();
 
-            self.write(Register::EndOfInterrupt, 0);
-            self.write(Register::InterruptCommandHigh, 0);
-            self.write(Register::InterruptCommandLow, 0x80000 | 0x500 | 0x8000);
+            data_8259a.write(0xf8);
+            data_8259b.write(0xff);
+            spin();
 
-            while self.read(Register::InterruptCommandLow) & 0x1000 != 0 {}
-            self.write(Register::TaskPriority, 0);
+            data_8259a.write(0b100);
+            spin();
+
+            data_8259b.write(0b10);
+            spin();
+
+            data_8259a.write(0x1);
+            data_8259b.write(0x1);
+            spin();
+
+            data_8259a.write(u8::MAX);
+            data_8259b.write(u8::MAX);
+        }
+
+        self.lapic = LocalApicBuilder::default()
+            .timer_vector(32)
+            .error_vector(51)
+            .spurious_vector(0xff)
+            .set_xapic_base(self.addr)
+            .build()
+            .ok();
+    }
+
+    pub fn enable(&mut self) {
+        unsafe {
+            self.lapic.as_mut().unwrap().enable();
+        }
+    }
+
+    pub fn disable(&mut self) {
+        unsafe {
+            self.lapic.as_mut().unwrap().disable();
         }
     }
 
     pub fn end_interrupts(&mut self) {
         unsafe {
-            self.write(Register::EndOfInterrupt, 0);
+            self.lapic.as_mut().unwrap().end_of_interrupt();
         }
+    }
+
+    pub fn id(&self) -> u32 {
+        unsafe { self.lapic.as_ref().unwrap().id() }
     }
 }
 
 pub fn init_lapic(lapic_addr: u64) {
     unsafe {
-        LAPIC.init_once(|| Mutex::new(LocalApic::new(lapic_addr)));
+        LAPIC.init_once(|| Mutex::new(LApic::new(lapic_addr)));
         LAPIC.get().unwrap().lock().init();
     }
 }

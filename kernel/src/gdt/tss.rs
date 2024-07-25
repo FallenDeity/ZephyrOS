@@ -22,7 +22,7 @@ pub static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
             let stack_start = VirtAddr::from_ptr(unsafe { addr_of!(STACK) });
-            stack_start + STACK_SIZE
+            stack_start + STACK_SIZE as u64
         };
     }
     tss

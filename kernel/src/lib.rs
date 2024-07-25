@@ -50,12 +50,11 @@ pub fn init(boot_info: &'static mut BootInfo) {
     memory::page::_map_kernel_pages(page, &mut mapper, &mut frame_allocator);
     println!("Kernel pages mapped");
     serial_println!("Kernel pages mapped");
-    let rsdp_addr = boot_info.rsdp_addr.as_ref().unwrap();
 
+    let rsdp_addr = boot_info.rsdp_addr.as_ref().unwrap();
     interrupt::apic::init(rsdp_addr);
     println!("APIC Initialized");
     serial_println!("APIC Initialized");
-
     println!("Kernel initialization complete");
     interrupt::enable_interrupts();
 }

@@ -27,6 +27,7 @@ pub fn init_text_renderer(framebuffer: &'static mut FrameBuffer) {
 }
 
 pub struct TextRenderer<'f> {
+    buffer: [u8; 128 * 25],
     position: Point,
     style: MonoTextStyle<'static, Rgb888>,
     background_color: Rgb888,
@@ -36,6 +37,7 @@ pub struct TextRenderer<'f> {
 impl<'f> TextRenderer<'f> {
     pub fn new(display: Display<'f>) -> TextRenderer<'f> {
         TextRenderer {
+            buffer: [0; 128 * 25],
             position: Point::zero(),
             style: MonoTextStyle::new(&FONT_7X14, Rgb888::WHITE),
             background_color: Rgb888::BLACK,
@@ -58,7 +60,7 @@ impl<'f> TextRenderer<'f> {
         info.stride * info.bytes_per_pixel * CURSOR_HEIGHT as usize
     }
 
-    fn shift_framebuffer(&mut self) {
+    fn shift_framebuffer_down(&mut self) {
         let info = self.display.framebuffer.info();
         let bytes_per_text_line = self.bytes_per_text_line();
         let framebuffer_size = info.stride * info.height * info.bytes_per_pixel;
@@ -78,6 +80,24 @@ impl<'f> TextRenderer<'f> {
         self.position.y -= 2 * CURSOR_HEIGHT + LINE_SPACING;
     }
 
+    pub fn shift_framebuffer_up(&mut self) {
+        let info = self.display.framebuffer.info();
+        let bytes_per_text_line = self.bytes_per_text_line();
+        let framebuffer_size = info.stride * info.height * info.bytes_per_pixel;
+        let framebuffer = self.display.framebuffer.buffer_mut();
+        let framebuffer_start = framebuffer.as_mut_ptr();
+        let framebuffer_line_start = unsafe { framebuffer_start.add(bytes_per_text_line) };
+        unsafe {
+            core::ptr::copy(
+                framebuffer_start,
+                framebuffer_line_start,
+                framebuffer_size - bytes_per_text_line,
+            );
+            core::ptr::write_bytes(framebuffer_start, 0, bytes_per_text_line);
+        }
+        self.position.y += 2 * CURSOR_HEIGHT + LINE_SPACING;
+    }
+
     fn render_cursor(&mut self) {
         let style = PrimitiveStyle::with_fill(Rgb888::WHITE);
         Rectangle::new(self.position, Size::new(10, 20))
@@ -92,13 +112,64 @@ impl<'f> TextRenderer<'f> {
             .unwrap_or_else(infallible);
     }
 
+    pub fn cursor_left(&mut self) {
+        self.clear_cursor();
+        self.position.x -= LETTER_WIDTH + 1;
+        if self.position.x < 0 {
+            self.position.x = self.width() as i32 - LETTER_WIDTH;
+            self.position.y -= CURSOR_HEIGHT + LINE_SPACING;
+        }
+        self.render_cursor();
+    }
+
+    pub fn cursor_right(&mut self) {
+        self.clear_cursor();
+        self.position.x += LETTER_WIDTH + 1;
+        if self.position.x as usize >= self.width() {
+            self.position.x = 0;
+            self.position.y += CURSOR_HEIGHT + LINE_SPACING;
+        }
+        self.render_cursor();
+    }
+
+    pub fn cursor_up(&mut self) {
+        self.clear_cursor();
+        self.position.y -= CURSOR_HEIGHT + LINE_SPACING;
+        if self.position.y < 0 {
+            self.shift_framebuffer_down();
+        }
+        self.render_cursor();
+    }
+
+    pub fn cursor_down(&mut self) {
+        self.clear_cursor();
+        self.position.y += CURSOR_HEIGHT + LINE_SPACING;
+        if self.position.y as usize >= self.height() {
+            self.shift_framebuffer_up();
+        }
+        self.render_cursor();
+    }
+
     pub fn clear(&mut self) {
         self.display.framebuffer.buffer_mut().fill(0);
         self.position = Point::zero();
     }
 
+    pub fn add_to_buffer(&mut self, c: char) {
+        if self.buffer.len() == 128 * 25 {
+            for i in 0..128 * 24 {
+                self.buffer[i] = self.buffer[i + 128];
+            }
+            self.buffer[128 * 24] = c as u8;
+        } else {
+            let len = self.buffer.len();
+            self.buffer[len] = c as u8;
+        }
+    }
+
     pub fn draw_char(&mut self, c: char) {
         self.clear_cursor();
+        self.add_to_buffer(c);
 
         if c == '\r' {
             self.position.x = 0;
@@ -117,7 +188,7 @@ impl<'f> TextRenderer<'f> {
         }
 
         if (self.position.y + CURSOR_HEIGHT) as usize > self.height() {
-            self.shift_framebuffer();
+            self.shift_framebuffer_down();
         }
         let mut tmp = [0u8; 4];
         let c_str = c.encode_utf8(&mut tmp);
@@ -129,6 +200,20 @@ impl<'f> TextRenderer<'f> {
         text.draw(&mut self.display).unwrap_or_else(infallible);
         self.position.x += LETTER_WIDTH + 1;
 
+        self.render_cursor();
+    }
+
+    pub fn remove_char(&mut self) {
+        self.clear_cursor();
+        if self.buffer.is_empty() {
+            return;
+        }
+        self.buffer[self.buffer.len() - 1] = 0;
+        self.position.x -= LETTER_WIDTH + 1;
+        if self.position.x < 0 {
+            self.position.x = self.width() as i32 - LETTER_WIDTH;
+            self.position.y -= CURSOR_HEIGHT + LINE_SPACING;
+        }
         self.render_cursor();
     }
 

@@ -2,7 +2,6 @@ use acpi::{AcpiTables, InterruptModel};
 
 pub mod ioapic;
 pub mod lapic;
-pub mod reg;
 pub mod rsdp;
 
 pub fn init(rsdp_addr: &u64) {
@@ -14,7 +13,19 @@ pub fn init(rsdp_addr: &u64) {
         let lapic_physical_address: u64 = apic.local_apic_address;
         lapic::init_lapic(lapic_physical_address);
         for i in apic.io_apics.iter() {
-            crate::println!("{:?}", i);
+            ioapic::init_ioapic(i.address as u64);
+            crate::println!("IO Pushed: {:?}", i);
+        }
+
+        unsafe {
+            for ioapic in ioapic::IOAPIC.get().unwrap().lock().iter_mut() {
+                ioapic.init();
+                ioapic.enable();
+                crate::println!("IO Enabled: {:?}", ioapic.get_ioapic());
+            }
+        }
+        unsafe {
+            lapic::LAPIC.get().unwrap().lock().enable();
         }
     }
 }

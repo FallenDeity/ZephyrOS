@@ -78,7 +78,19 @@ pub extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFram
 pub extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
     use crate::interrupt::apic::lapic::LAPIC;
 
-    print!(".");
+    unsafe {
+        LAPIC.get().unwrap().lock().end_interrupts();
+    }
+}
+
+pub extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    use x86_64::instructions::port::Port;
+
+    use crate::interrupt::apic::lapic::LAPIC;
+
+    let mut port = Port::new(0x60);
+    let scancode: u8 = unsafe { port.read() };
+    print!("{}", scancode);
 
     unsafe {
         LAPIC.get().unwrap().lock().end_interrupts();
