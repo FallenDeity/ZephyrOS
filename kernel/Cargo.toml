@@ -21,3 +21,6 @@ bootloader-x86_64-common = "0.11.7"
 conquer-once = { version = "0.4.0", default-features = false }
 acpi = "5.0.0"
 x2apic = "0.4.3"
+crossbeam-queue = {version = "0.3.11", default-features = false, features = ["alloc"]}
+pc-keyboard = "0.7.0"
+futures-util = { version = "0.3.30", default-features = false, features = ["alloc"]}

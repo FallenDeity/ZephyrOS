@@ -23,6 +23,13 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     kernel::init(boot_info);
     println!("Kernel Initialized...");
     serial_println!("Kernel Initialized...");
+
+    println!("Initializing task executor...");
+    serial_println!("Initializing task executor...");
+    kernel::task::init_executor();
+    println!("Task executor initialized");
+    serial_println!("Task executor initialized");
+
     kernel::hlt_loop();
 }
 

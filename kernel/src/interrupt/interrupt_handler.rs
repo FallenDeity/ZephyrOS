@@ -1,8 +1,17 @@
+use alloc::collections::VecDeque;
+
 use embedded_graphics::pixelcolor::{Rgb888, RgbColor};
+use spin::mutex::Mutex;
+use spin::Lazy;
 use x86_64::structures::idt::{InterruptStackFrame, PageFaultErrorCode};
 
 use crate::renderer::text_renderer;
-use crate::{print, println, serial_println};
+use crate::{println, serial_println};
+
+const STDIN_BUFFER_SIZE: usize = 10;
+
+pub static STDIN_BUFFER: Lazy<Mutex<VecDeque<u8>>> =
+    Lazy::new(|| Mutex::new(VecDeque::with_capacity(STDIN_BUFFER_SIZE)));
 
 fn _set_color(color: Rgb888) {
     text_renderer::TEXT_RENDERER.get().unwrap().lock().set_color(color);
@@ -90,7 +99,8 @@ pub extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: Interrupt
 
     let mut port = Port::new(0x60);
     let scancode: u8 = unsafe { port.read() };
-    print!("{}", scancode);
+
+    crate::task::keyboard::add_scancode(scancode);
 
     unsafe {
         LAPIC.get().unwrap().lock().end_interrupts();

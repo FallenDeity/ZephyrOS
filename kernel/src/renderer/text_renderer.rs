@@ -1,3 +1,4 @@
+use alloc::format;
 use core::convert::Infallible;
 use core::fmt::Write;
 
@@ -28,6 +29,7 @@ pub fn init_text_renderer(framebuffer: &'static mut FrameBuffer) {
 
 pub struct TextRenderer<'f> {
     buffer: [u8; 128 * 25],
+    buffer_index: usize,
     position: Point,
     style: MonoTextStyle<'static, Rgb888>,
     background_color: Rgb888,
@@ -38,6 +40,7 @@ impl<'f> TextRenderer<'f> {
     pub fn new(display: Display<'f>) -> TextRenderer<'f> {
         TextRenderer {
             buffer: [0; 128 * 25],
+            buffer_index: 0,
             position: Point::zero(),
             style: MonoTextStyle::new(&FONT_7X14, Rgb888::WHITE),
             background_color: Rgb888::BLACK,
@@ -112,8 +115,36 @@ impl<'f> TextRenderer<'f> {
             .unwrap_or_else(infallible);
     }
 
+    fn draw_char_at(&mut self, c: char, x: i32, y: i32) {
+        let mut tmp = [0u8; 4];
+        let c_str = c.encode_utf8(&mut tmp);
+        let text = Text::new(c_str, Point::new(x, y + CURSOR_HEIGHT), self.style);
+        text.draw(&mut self.display).unwrap_or_else(infallible);
+    }
+
     pub fn cursor_left(&mut self) {
         self.clear_cursor();
+        let num_letters = self.display.framebuffer.info().width as i32 / LETTER_WIDTH;
+        let row = self.position.y / (CURSOR_HEIGHT + LINE_SPACING);
+        let col = self.position.x / LETTER_WIDTH;
+        // let c = self.buffer_map.get(&(row as usize, col as usize)).unwrap_or(&0);
+
+        // format string of row and col number and last buffer value
+        let s = format!(
+            "{} {} {} {} {}",
+            row,
+            col,
+            (row * num_letters + col) as usize,
+            0,
+            self.buffer_index
+        );
+        let text = Text::new(
+            s.as_str(),
+            Point::new(self.position.x, self.position.y + CURSOR_HEIGHT),
+            self.style,
+        );
+        text.draw(&mut self.display).unwrap_or_else(infallible);
+
         self.position.x -= LETTER_WIDTH + 1;
         if self.position.x < 0 {
             self.position.x = self.width() as i32 - LETTER_WIDTH;
@@ -124,30 +155,57 @@ impl<'f> TextRenderer<'f> {
 
     pub fn cursor_right(&mut self) {
         self.clear_cursor();
+        let c = self.buffer[(self.position.y as usize / CURSOR_HEIGHT as usize) * 128
+            + (self.position.x as usize / LETTER_WIDTH as usize)];
+        let pos_x = self.position.x;
+        let pos_y = self.position.y;
+
         self.position.x += LETTER_WIDTH + 1;
         if self.position.x as usize >= self.width() {
             self.position.x = 0;
             self.position.y += CURSOR_HEIGHT + LINE_SPACING;
         }
         self.render_cursor();
+
+        if c != 0 {
+            self.draw_char_at(c as char, pos_x, pos_y);
+        }
     }
 
     pub fn cursor_up(&mut self) {
         self.clear_cursor();
+        let c = self.buffer[(self.position.y as usize / CURSOR_HEIGHT as usize) * 128
+            + (self.position.x as usize / LETTER_WIDTH as usize)];
+        let pos_x = self.position.x;
+        let pos_y = self.position.y;
+
         self.position.y -= CURSOR_HEIGHT + LINE_SPACING;
         if self.position.y < 0 {
-            self.shift_framebuffer_down();
+            self.shift_framebuffer_up();
         }
         self.render_cursor();
+
+        if c != 0 {
+            self.draw_char_at(c as char, pos_x, pos_y);
+        }
     }
 
     pub fn cursor_down(&mut self) {
         self.clear_cursor();
+        let c = self.buffer[(self.position.y as usize / CURSOR_HEIGHT as usize) * 128
+            + (self.position.x as usize / LETTER_WIDTH as usize)];
+        let pos_x = self.position.x;
+        let pos_y = self.position.y;
+
         self.position.y += CURSOR_HEIGHT + LINE_SPACING;
         if self.position.y as usize >= self.height() {
-            self.shift_framebuffer_up();
+            self.shift_framebuffer_down();
         }
         self.render_cursor();
+
+        if c != 0 {
+            self.draw_char_at(c as char, pos_x, pos_y);
+        }
     }
 
     pub fn clear(&mut self) {
@@ -156,14 +214,14 @@ impl<'f> TextRenderer<'f> {
     }
 
     pub fn add_to_buffer(&mut self, c: char) {
-        if self.buffer.len() == 128 * 25 {
+        if self.buffer_index == 128 * 25 {
             for i in 0..128 * 24 {
                 self.buffer[i] = self.buffer[i + 128];
             }
             self.buffer[128 * 24] = c as u8;
         } else {
-            let len = self.buffer.len();
-            self.buffer[len] = c as u8;
+            self.buffer[self.buffer_index] = c as u8;
+            self.buffer_index += 1;
         }
     }
 

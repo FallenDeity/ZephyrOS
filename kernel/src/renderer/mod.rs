@@ -1,3 +1,4 @@
+pub mod keyboard_interface;
 pub mod serial;
 pub mod text_renderer;
 

@@ -8,6 +8,7 @@ pub mod gdt;
 pub mod interrupt;
 pub mod memory;
 pub mod renderer;
+pub mod task;
 
 use bootloader_api::BootInfo;
 use conquer_once::spin::OnceCell;

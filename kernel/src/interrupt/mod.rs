@@ -1,6 +1,6 @@
 pub mod apic;
-mod interrupt_handler;
-mod interrupts;
+pub mod interrupt_handler;
+pub mod interrupts;
 
 use spin::Lazy;
 use x86_64::structures::idt::InterruptDescriptorTable;
